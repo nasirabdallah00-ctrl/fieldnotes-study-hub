@@ -256,8 +256,13 @@ function formatFileSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function bookCard(book, allowDelete = false, showExam = false) {
+  const examLabel = showExam ? `${escapeHTML(book.exam)} · ` : '';
+  return `<article class="book-card"><span class="book-file-badge">${escapeHTML(book.format)}</span><div class="book-card-copy"><h3>${escapeHTML(book.title)}</h3><p>${examLabel}${escapeHTML(book.subject)} · ${escapeHTML(book.category)} · ${formatFileSize(book.size)}</p><span>Added ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(book.uploadedAt))}</span></div><div class="book-card-actions"><button class="button-secondary" data-download-book="${escapeHTML(book.id)}">Download</button>${allowDelete ? `<button class="text-button danger-button" data-delete-book="${escapeHTML(book.id)}">Delete</button>` : ''}</div></article>`;
+}
+
 async function renderLibrary() {
-  root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'Find books stored on this device. Admin uploads are available offline in this browser.')}
+  root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'Browse and download books saved on this device.')}
     <div class="empty-state">Loading your local book library...</div>`;
   let libraryBooks;
   try {
@@ -268,22 +273,38 @@ async function renderLibrary() {
     return;
   }
   if (data.view !== 'library') return;
-
-  const adminPanel = adminUnlocked
-    ? `<div class="library-admin-top"><div><p class="eyebrow">ADMIN ACCESS</p><h2>Upload books</h2></div><button class="button-secondary" data-action="lock-admin">Lock admin</button></div>
-      <p class="admin-local-note">Files are saved only in this browser. They are not sent to the public website or other devices.</p>
-      <form id="book-upload-form" class="book-upload-form"><label for="book-subject">Subject</label><select id="book-subject" name="subject">${subjectsForExam().map((subject) => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('')}</select><label for="book-category">Book type</label><select id="book-category" name="category"><option>Textbook</option><option>Revision notes</option><option>Past paper</option><option>Other</option></select><label for="book-files">Choose PDF or EPUB files</label><input id="book-files" name="files" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple required /><p class="admin-local-note">Up to 100 MB per file. Books are visible on this device only.</p><p class="book-upload-status" role="status"></p><button class="button-primary" type="submit">Upload to this device</button></form>`
-    : `<p class="admin-local-note">Only you can manage this device’s library. Set a local admin passphrase once, then sign in to add or remove books.</p>
-      <form id="admin-auth-form" class="book-upload-form"><p class="eyebrow">${adminProfile ? 'ADMIN SIGN IN' : 'FIRST-TIME ADMIN SETUP'}</p><h2>${adminProfile ? 'Unlock library controls' : 'Create local admin access'}</h2><label for="admin-passphrase">${adminProfile ? 'Admin passphrase' : 'Create passphrase'}</label><input id="admin-passphrase" name="passphrase" type="password" minlength="8" maxlength="128" autocomplete="${adminProfile ? 'current-password' : 'new-password'}" required />${adminProfile ? '' : '<label for="admin-passphrase-confirm">Confirm passphrase</label><input id="admin-passphrase-confirm" name="confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />'}<p class="admin-auth-status" role="status"></p><button class="button-primary" type="submit">${adminProfile ? 'Sign in as admin' : 'Create admin passphrase'}</button></form>`;
-
   const visibleBooks = libraryBooks.filter((book) => book.exam === data.exam).sort((first, second) => second.uploadedAt.localeCompare(first.uploadedAt));
-  root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'Find books stored on this device. Admin uploads are available offline in this browser.')}
-    <div class="book-library-layout"><section class="library-admin-panel">${adminPanel}</section><section class="library-books"><div class="section-head"><h2>${data.exam} books</h2><span class="book-count">${visibleBooks.length}</span></div>${visibleBooks.length ? `<div class="book-card-list">${visibleBooks.map((book) => `<article class="book-card"><span class="book-file-badge">${escapeHTML(book.format)}</span><div class="book-card-copy"><h3>${escapeHTML(book.title)}</h3><p>${escapeHTML(book.subject)} · ${escapeHTML(book.category)} · ${formatFileSize(book.size)}</p><span>Added ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(book.uploadedAt))}</span></div><div class="book-card-actions"><button class="button-secondary" data-download-book="${escapeHTML(book.id)}">Download</button>${adminUnlocked ? `<button class="text-button danger-button" data-delete-book="${escapeHTML(book.id)}">Delete</button>` : ''}</div></article>`).join('')}</div>` : '<div class="empty-state">No books for this exam yet. Admin uploads on this device will appear here.</div>'}</section></div>`;
+  root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'Browse and download books saved on this device.')}
+    <section class="library-books"><div class="section-head"><h2>${data.exam} books</h2><span class="book-count">${visibleBooks.length}</span></div>${visibleBooks.length ? `<div class="book-card-list">${visibleBooks.map((book) => bookCard(book)).join('')}</div>` : '<div class="empty-state">No books for this exam yet.</div>'}</section>`;
+}
 
-  const authForm = document.querySelector('#admin-auth-form');
-  if (authForm) authForm.addEventListener('submit', authenticateLocalAdmin);
+async function renderAdmin() {
+  if (!adminUnlocked) {
+    root.innerHTML = `${heading('ADMIN · THIS DEVICE', 'Admin access', adminProfile ? 'Sign in to manage books saved on this device.' : 'Create a local passphrase to manage this device’s book library.')}
+      <section class="admin-auth-shell"><form id="admin-auth-form" class="book-upload-form admin-auth-card"><p class="eyebrow">${adminProfile ? 'ADMIN SIGN IN' : 'FIRST-TIME ADMIN SETUP'}</p><h2>${adminProfile ? 'Unlock admin tools' : 'Create admin access'}</h2><p class="admin-local-note">This admin profile is only for this browser. It does not create a shared online account.</p><label for="admin-passphrase">${adminProfile ? 'Admin passphrase' : 'Create passphrase'}</label><input id="admin-passphrase" name="passphrase" type="password" minlength="8" maxlength="128" autocomplete="${adminProfile ? 'current-password' : 'new-password'}" required />${adminProfile ? '' : '<label for="admin-passphrase-confirm">Confirm passphrase</label><input id="admin-passphrase-confirm" name="confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />'}<p class="admin-auth-status" role="status"></p><button class="button-primary" type="submit">${adminProfile ? 'Sign in as admin' : 'Create admin passphrase'}</button></form></section>`;
+    document.querySelector('#admin-auth-form').addEventListener('submit', authenticateLocalAdmin);
+    return;
+  }
+
+  root.innerHTML = `${heading('ADMIN · THIS DEVICE', 'Book management', 'Upload and manage the offline library on this device.', '<button class="button-secondary" data-action="lock-admin">Lock admin</button>')}
+    <div class="admin-console"><section class="library-admin-panel"><div class="library-admin-top"><div><p class="eyebrow">LOCAL LIBRARY</p><h2>Upload books</h2></div></div><p class="admin-local-note">Files are saved in this browser only. PDF and EPUB files up to 100 MB each.</p>
+    <form id="book-upload-form" class="book-upload-form"><label for="book-exam">Exam</label><select id="book-exam" name="exam"><option>WAEC</option><option>NPSE</option><option>BECE</option></select><label for="book-subject">Subject</label><select id="book-subject" name="subject">${examCatalog.WAEC.subjects.map((subject) => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('')}</select><label for="book-category">Book type</label><select id="book-category" name="category"><option>Textbook</option><option>Revision notes</option><option>Past paper</option><option>Other</option></select><label for="book-files">Choose PDF or EPUB files</label><input id="book-files" name="files" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple required /><p class="book-upload-status" role="status"></p><button class="button-primary" type="submit">Upload books</button></form></section><section class="admin-books"><div class="section-head"><h2>All stored books</h2><span class="book-count" id="admin-book-count">…</span></div><div id="admin-book-list" class="book-card-list"><div class="empty-state">Loading books...</div></div></section></div>`;
+
   const uploadForm = document.querySelector('#book-upload-form');
-  if (uploadForm) uploadForm.addEventListener('submit', uploadLocalBooks);
+  uploadForm.elements.exam.value = data.exam;
+  uploadForm.elements.subject.innerHTML = examCatalog[data.exam].subjects.map((subject) => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('');
+  uploadForm.elements.exam.addEventListener('change', () => {
+    uploadForm.elements.subject.innerHTML = examCatalog[uploadForm.elements.exam.value].subjects.map((subject) => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('');
+  });
+  uploadForm.addEventListener('submit', uploadLocalBooks);
+  try {
+    const allBooks = (await listBooks()).sort((first, second) => second.uploadedAt.localeCompare(first.uploadedAt));
+    if (data.view !== 'admin' || !adminUnlocked) return;
+    document.querySelector('#admin-book-count').textContent = allBooks.length;
+    document.querySelector('#admin-book-list').innerHTML = allBooks.length ? allBooks.map((book) => bookCard(book, true, true)).join('') : '<div class="empty-state">No books stored on this device yet.</div>';
+  } catch {
+    document.querySelector('#admin-book-list').innerHTML = '<div class="empty-state">Could not read this device’s book library.</div>';
+  }
 }
 
 async function authenticateLocalAdmin(event) {
@@ -302,7 +323,7 @@ async function authenticateLocalAdmin(event) {
       adminEncryptionKey = await createAdminProfile(passphrase);
     }
     adminUnlocked = true;
-    await renderLibrary();
+    await renderAdmin();
   } catch (error) {
     status.textContent = error.message === 'Passphrases do not match.' ? error.message : adminProfile ? 'That passphrase did not unlock admin controls.' : 'Could not create admin access in this browser.';
     submit.disabled = false;
@@ -339,7 +360,7 @@ async function uploadLocalBooks(event) {
         id: crypto.randomUUID(),
         title: file.name.replace(/\.(pdf|epub)$/i, ''),
         fileName: file.name,
-        exam: data.exam,
+        exam: form.elements.exam.value || data.exam,
         subject: form.elements.subject.value,
         category: form.elements.category.value,
         format,
@@ -348,7 +369,7 @@ async function uploadLocalBooks(event) {
         file,
       });
     }
-    await renderLibrary();
+    await renderAdmin();
   } catch {
     status.textContent = 'Could not save the book. Check available browser storage and try a smaller file.';
     submit.disabled = false;
@@ -368,7 +389,7 @@ async function downloadLocalBook(id) {
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 60000);
   } catch {
-    root.querySelector('.library-books')?.insertAdjacentHTML('afterbegin', '<p class="book-upload-status" role="status">Could not open this book from local storage.</p>');
+    root.querySelector('.library-books, .admin-books')?.insertAdjacentHTML('afterbegin', '<p class="book-upload-status" role="status">Could not open this book from local storage.</p>');
   }
 }
 
@@ -447,7 +468,7 @@ function timeOfDay() {
 }
 
 function render() {
-  const labels = { dashboard: 'Overview', subjects: 'Subjects', practice: 'Quick practice', papers: 'Past papers', library: 'Books', notes: 'My notes' };
+  const labels = { dashboard: 'Overview', subjects: 'Subjects', practice: 'Quick practice', papers: 'Past papers', library: 'Books', admin: 'Admin', notes: 'My notes' };
   document.querySelector('#page-title').textContent = labels[data.view] || 'Overview';
   document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('is-active', button.dataset.view === data.view));
   examSelect.value = data.exam;
@@ -455,6 +476,7 @@ function render() {
   else if (data.view === 'practice') renderPractice();
   else if (data.view === 'papers') renderPapers();
   else if (data.view === 'library') renderLibrary();
+  else if (data.view === 'admin') renderAdmin();
   else if (data.view === 'notes') renderNotes();
   else renderDashboard();
 }
@@ -494,12 +516,12 @@ document.addEventListener('click', (event) => {
   if (button.dataset.action === 'lock-admin') {
     adminUnlocked = false;
     adminEncryptionKey = null;
-    return renderLibrary();
+    return renderAdmin();
   }
   if (button.dataset.downloadBook) return downloadLocalBook(button.dataset.downloadBook);
   if (button.dataset.deleteBook) {
-    removeBook(button.dataset.deleteBook).then(renderLibrary).catch(() => {
-      root.querySelector('.library-books')?.insertAdjacentHTML('afterbegin', '<p class="book-upload-status" role="status">Could not delete this book from local storage.</p>');
+    removeBook(button.dataset.deleteBook).then(() => data.view === 'admin' ? renderAdmin() : renderLibrary()).catch(() => {
+      root.querySelector('.library-books, .admin-books')?.insertAdjacentHTML('afterbegin', '<p class="book-upload-status" role="status">Could not delete this book from local storage.</p>');
     });
     return;
   }

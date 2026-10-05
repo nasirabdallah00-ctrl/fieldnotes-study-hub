@@ -144,7 +144,11 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
 .quiz-feedback { min-height: 20px; margin: 13px 0 2px; color: var(--green-2); font-size: 11px; }
 .quiz-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
 .empty-state { padding: 24px; border: 1px dashed #ccd8ce; border-radius: 6px; color: var(--muted); font-size: 12px; text-align: center; }
-.book-library-layout { display: grid; grid-template-columns: minmax(245px, .72fr) minmax(0, 1.5fr); gap: 22px; align-items: start; }
+.admin-auth-shell { max-width: 480px; }
+.admin-auth-card { padding: 24px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.admin-auth-card .eyebrow { margin: 0; }
+.admin-auth-card h2 { margin: 0; font: 700 18px var(--display); }
+.admin-console { display: grid; grid-template-columns: minmax(250px, .8fr) minmax(0, 1.35fr); gap: 22px; align-items: start; }
 .library-admin-panel { padding: 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
 .library-admin-top { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
 .library-admin-top .eyebrow { margin-bottom: 5px; }
@@ -159,6 +163,7 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
 .book-upload-status, .admin-auth-status { min-height: 14px; margin: 0; color: var(--green-2); font-size: 10px; line-height: 1.5; }
 .book-upload-form button:disabled { cursor: wait; opacity: .65; }
 .library-books .section-head { margin-top: 0; }
+.admin-books .section-head { margin-top: 0; }
 .book-count { display: grid; min-width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--mint); color: var(--green); font-size: 10px; font-weight: 700; }
 .book-card-list { display: grid; gap: 8px; }
 .book-card { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
@@ -211,7 +216,7 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
   .view-root { padding-right: 25px; padding-left: 25px; }
   .subject-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero-art { min-height: 195px; }
-  .book-library-layout { grid-template-columns: 1fr; }
+  .admin-console { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
   .sidebar { position: sticky; inset: 0 0 auto; width: 100%; height: auto; padding: 11px 14px 0; }

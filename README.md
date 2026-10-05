@@ -19,6 +19,7 @@ Then open `http://localhost:8000`. The service worker and install prompt require
 - Sample past-paper index with local review tracking
 - Notes saved in local storage
 - Notes protected by a device-local passphrase and encrypted at rest with Web Crypto
+- Separate Books browsing and Admin management interfaces
 - PDF/EPUB book uploads stored in an offline IndexedDB library on this device
 - Responsive installable PWA shell with service-worker caching
 - Sierra Leone coat-of-arms background watermark, bundled for offline use
@@ -31,4 +32,4 @@ The Sierra Leone coat of arms is by Yuma and contributors including Bluebear2, R
 
 The notes profile is local to one browser and device; it is not an online account and has no password recovery. Notes are encrypted with the passphrase, so forgetting it means they cannot be unlocked. General study progress remains local to the browser as well.
 
-The Books page lets the first person on a device create a local admin passphrase, then upload, download, or remove PDF and EPUB books. Files stay in that browser's IndexedDB and are not uploaded to GitHub Pages or shared with other devices. Use a browser over localhost or HTTPS, and keep a separate copy of books you cannot replace.
+The Books page is for browsing and downloading. The separate Admin page lets the first person on a device create a local admin passphrase, then upload or remove PDF and EPUB books. Files stay in that browser's IndexedDB and are not uploaded to GitHub Pages or shared with other devices. Use a browser over localhost or HTTPS, and keep a separate copy of books you cannot replace.
