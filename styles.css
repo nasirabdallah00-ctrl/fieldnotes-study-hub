@@ -18,11 +18,12 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+body { position: relative; isolation: isolate; margin: 0; min-width: 320px; min-height: 100vh; }
+body::before { position: fixed; z-index: 0; inset: 0; background: url('./sierra-leone-coat-of-arms.svg') center 50% / clamp(260px, 45vw, 580px) auto no-repeat; content: ''; opacity: .18; pointer-events: none; }
 button, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 3px solid #ee765d; outline-offset: 3px; }
-.app-shell { min-height: 100vh; }
+.app-shell { position: relative; z-index: 1; min-height: 100vh; }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 3; width: 244px; display: flex; flex-direction: column; padding: 29px 18px 18px; background: #174c3a; color: #f7f8f2; }
 .brand { display: flex; align-items: center; gap: 10px; margin: 0 10px 53px; color: inherit; text-decoration: none; }
 .brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px 9px 9px 3px; background: var(--coral); color: #18352d; font: 800 17px var(--display); transform: rotate(-4deg); }
@@ -174,8 +175,10 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
 .gate-submit { justify-self: start; }
 .gate-submit:disabled { cursor: wait; opacity: .65; }
 .gate-footnote { padding-top: 9px; border-top: 1px solid var(--line); }
-.footer { display: flex; justify-content: space-between; padding: 0 clamp(22px, 5vw, 64px) 19px; color: #9ba59d; font-size: 9px; }
+.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 15px; padding: 0 clamp(22px, 5vw, 64px) 19px; color: #839188; font-size: 9px; }
 .footer span:first-child { font-weight: 700; letter-spacing: .6px; }
+.asset-credit { color: inherit; text-decoration: underline; text-decoration-color: #b7c3b9; text-underline-offset: 2px; }
+.asset-credit:hover { color: var(--green); }
 @media (max-width: 920px) {
   .sidebar { width: 206px; }
   .main-content { margin-left: 206px; }
