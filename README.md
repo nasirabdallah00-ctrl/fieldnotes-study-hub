@@ -1,4 +1,4 @@
-# Fieldnotes Study Hub
+# Exams Hub
 
 An installable, offline-capable study hub for WAEC, NPSE, and BECE. It runs without a build step or third-party packages.
 

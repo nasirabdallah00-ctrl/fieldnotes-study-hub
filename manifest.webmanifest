@@ -1,6 +1,6 @@
 {
-  "name": "Fieldnotes | Exam preparation",
-  "short_name": "Fieldnotes",
+  "name": "Exams Hub | Exam preparation",
+  "short_name": "Exams Hub",
   "description": "Offline-ready preparation for WAEC, NPSE, and BECE.",
   "start_url": "./",
   "scope": "./",
