@@ -49,12 +49,18 @@ const papers = [
 
 const storageKey = 'fieldnotes-study-data-v1';
 const notesProfileKey = 'fieldnotes-notes-profile-v1';
+const adminProfileKey = 'exams-hub-local-admin-v1';
+const bookDatabaseName = 'exams-hub-book-library';
+const maximumBookSize = 100 * 1024 * 1024;
 const defaultData = { exam: 'WAEC', view: 'dashboard', answered: 0, correct: 0, streak: 1, completedPapers: [], notes: [{ title: 'Untitled note', body: '' }] };
 let data = loadData();
 let notesProfile = loadNotesProfile();
+let adminProfile = loadAdminProfile();
 let notesEncryptionKey = null;
 let notesUnlocked = false;
 let notesSaveQueue = Promise.resolve();
+let adminEncryptionKey = null;
+let adminUnlocked = false;
 let quizIndex = 0;
 let selectedAnswer = null;
 let quizSubmitted = false;
@@ -86,6 +92,49 @@ function loadNotesProfile() {
   }
 }
 
+function loadAdminProfile() {
+  try {
+    return JSON.parse(localStorage.getItem(adminProfileKey));
+  } catch {
+    return null;
+  }
+}
+
+function openBookDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(bookDatabaseName, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore('books', { keyPath: 'id' });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function withBookStore(mode, operation) {
+  const database = await openBookDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction('books', mode);
+    const request = operation(transaction.objectStore('books'));
+    let result;
+    request.onsuccess = () => { result = request.result; };
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => { database.close(); resolve(result); };
+    transaction.onerror = () => { database.close(); reject(transaction.error); };
+    transaction.onabort = () => { database.close(); reject(transaction.error); };
+  });
+}
+
+function listBooks() {
+  return withBookStore('readonly', (store) => store.getAll());
+}
+
+function storeBook(book) {
+  return withBookStore('readwrite', (store) => store.add(book));
+}
+
+function removeBook(id) {
+  return withBookStore('readwrite', (store) => store.delete(id));
+}
+
 function encodeBytes(bytes) {
   return btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(''));
 }
@@ -97,6 +146,28 @@ function decodeBytes(encoded) {
 async function deriveNotesKey(passphrase, salt) {
   const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
+async function deriveAdminKey(passphrase, salt) {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 250000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
+async function createAdminProfile(passphrase) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveAdminKey(passphrase, salt);
+  const verifier = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode('exams-hub-admin-access'));
+  adminProfile = { salt: encodeBytes(salt), iv: encodeBytes(iv), verifier: encodeBytes(new Uint8Array(verifier)) };
+  localStorage.setItem(adminProfileKey, JSON.stringify(adminProfile));
+  return key;
+}
+
+async function verifyAdminPassphrase(passphrase) {
+  const key = await deriveAdminKey(passphrase, decodeBytes(adminProfile.salt));
+  const verifier = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: decodeBytes(adminProfile.iv) }, key, decodeBytes(adminProfile.verifier));
+  if (new TextDecoder().decode(verifier) !== 'exams-hub-admin-access') throw new Error('Invalid admin passphrase');
+  return key;
 }
 
 async function encryptNotes(notes, key) {
@@ -180,6 +251,127 @@ function renderPapers() {
     <div class="paper-table">${shownPapers.length ? shownPapers.map((paper, index) => { const id = `${paper.exam}-${paper.year}-${paper.subject}`; const done = data.completedPapers.includes(id); return `<div class="paper-row"><div><div class="paper-title">${escapeHTML(paper.title)}</div><div class="paper-meta">${escapeHTML(paper.subject)}</div></div><span class="paper-tag">${escapeHTML(paper.type)}</span><span class="paper-year">${paper.year} ${done ? '· Done' : ''}</span><button class="button-secondary" data-paper="${escapeHTML(id)}" data-index="${index}">${done ? 'Review' : 'Mark complete'}</button></div>`; }).join('') : '<div class="empty-state">No papers in this category yet. Try another filter.</div>'}</div>`;
 }
 
+function formatFileSize(bytes) {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function renderLibrary() {
+  root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'Find books stored on this device. Admin uploads are available offline in this browser.')}
+    <div class="empty-state">Loading your local book library...</div>`;
+  let libraryBooks;
+  try {
+    libraryBooks = await listBooks();
+  } catch {
+    if (data.view === 'library') root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'This browser could not open its local book database.')}
+      <div class="empty-state">Try a current browser over localhost or HTTPS.</div>`;
+    return;
+  }
+  if (data.view !== 'library') return;
+
+  const adminPanel = adminUnlocked
+    ? `<div class="library-admin-top"><div><p class="eyebrow">ADMIN ACCESS</p><h2>Upload books</h2></div><button class="button-secondary" data-action="lock-admin">Lock admin</button></div>
+      <p class="admin-local-note">Files are saved only in this browser. They are not sent to the public website or other devices.</p>
+      <form id="book-upload-form" class="book-upload-form"><label for="book-subject">Subject</label><select id="book-subject" name="subject">${subjectsForExam().map((subject) => `<option value="${escapeHTML(subject.name)}">${escapeHTML(subject.name)}</option>`).join('')}</select><label for="book-category">Book type</label><select id="book-category" name="category"><option>Textbook</option><option>Revision notes</option><option>Past paper</option><option>Other</option></select><label for="book-files">Choose PDF or EPUB files</label><input id="book-files" name="files" type="file" accept=".pdf,.epub,application/pdf,application/epub+zip" multiple required /><p class="admin-local-note">Up to 100 MB per file. Books are visible on this device only.</p><p class="book-upload-status" role="status"></p><button class="button-primary" type="submit">Upload to this device</button></form>`
+    : `<p class="admin-local-note">Only you can manage this device’s library. Set a local admin passphrase once, then sign in to add or remove books.</p>
+      <form id="admin-auth-form" class="book-upload-form"><p class="eyebrow">${adminProfile ? 'ADMIN SIGN IN' : 'FIRST-TIME ADMIN SETUP'}</p><h2>${adminProfile ? 'Unlock library controls' : 'Create local admin access'}</h2><label for="admin-passphrase">${adminProfile ? 'Admin passphrase' : 'Create passphrase'}</label><input id="admin-passphrase" name="passphrase" type="password" minlength="8" maxlength="128" autocomplete="${adminProfile ? 'current-password' : 'new-password'}" required />${adminProfile ? '' : '<label for="admin-passphrase-confirm">Confirm passphrase</label><input id="admin-passphrase-confirm" name="confirm" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />'}<p class="admin-auth-status" role="status"></p><button class="button-primary" type="submit">${adminProfile ? 'Sign in as admin' : 'Create admin passphrase'}</button></form>`;
+
+  const visibleBooks = libraryBooks.filter((book) => book.exam === data.exam).sort((first, second) => second.uploadedAt.localeCompare(first.uploadedAt));
+  root.innerHTML = `${heading(`${data.exam} · OFFLINE LIBRARY`, 'Book library', 'Find books stored on this device. Admin uploads are available offline in this browser.')}
+    <div class="book-library-layout"><section class="library-admin-panel">${adminPanel}</section><section class="library-books"><div class="section-head"><h2>${data.exam} books</h2><span class="book-count">${visibleBooks.length}</span></div>${visibleBooks.length ? `<div class="book-card-list">${visibleBooks.map((book) => `<article class="book-card"><span class="book-file-badge">${escapeHTML(book.format)}</span><div class="book-card-copy"><h3>${escapeHTML(book.title)}</h3><p>${escapeHTML(book.subject)} · ${escapeHTML(book.category)} · ${formatFileSize(book.size)}</p><span>Added ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(book.uploadedAt))}</span></div><div class="book-card-actions"><button class="button-secondary" data-download-book="${escapeHTML(book.id)}">Download</button>${adminUnlocked ? `<button class="text-button danger-button" data-delete-book="${escapeHTML(book.id)}">Delete</button>` : ''}</div></article>`).join('')}</div>` : '<div class="empty-state">No books for this exam yet. Admin uploads on this device will appear here.</div>'}</section></div>`;
+
+  const authForm = document.querySelector('#admin-auth-form');
+  if (authForm) authForm.addEventListener('submit', authenticateLocalAdmin);
+  const uploadForm = document.querySelector('#book-upload-form');
+  if (uploadForm) uploadForm.addEventListener('submit', uploadLocalBooks);
+}
+
+async function authenticateLocalAdmin(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = form.querySelector('button[type="submit"]');
+  const status = form.querySelector('[role="status"]');
+  const passphrase = form.elements.passphrase.value;
+  submit.disabled = true;
+  status.textContent = '';
+  try {
+    if (adminProfile) {
+      adminEncryptionKey = await verifyAdminPassphrase(passphrase);
+    } else {
+      if (passphrase !== form.elements.confirm.value) throw new Error('Passphrases do not match.');
+      adminEncryptionKey = await createAdminProfile(passphrase);
+    }
+    adminUnlocked = true;
+    await renderLibrary();
+  } catch (error) {
+    status.textContent = error.message === 'Passphrases do not match.' ? error.message : adminProfile ? 'That passphrase did not unlock admin controls.' : 'Could not create admin access in this browser.';
+    submit.disabled = false;
+  }
+}
+
+async function uploadLocalBooks(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const files = Array.from(form.elements.files.files);
+  const status = form.querySelector('[role="status"]');
+  const submit = form.querySelector('button[type="submit"]');
+  const invalidFile = files.find((file) => !/\.(pdf|epub)$/i.test(file.name));
+  if (!files.length) {
+    status.textContent = 'Choose at least one PDF or EPUB file.';
+    return;
+  }
+  if (invalidFile) {
+    status.textContent = `${invalidFile.name} is not a PDF or EPUB file.`;
+    return;
+  }
+  const oversizedFile = files.find((file) => file.size > maximumBookSize);
+  if (oversizedFile) {
+    status.textContent = `${oversizedFile.name} is larger than 100 MB.`;
+    return;
+  }
+
+  submit.disabled = true;
+  status.textContent = `Saving ${files.length} ${files.length === 1 ? 'book' : 'books'} on this device...`;
+  try {
+    for (const file of files) {
+      const format = file.name.toLowerCase().endsWith('.epub') ? 'EPUB' : 'PDF';
+      await storeBook({
+        id: crypto.randomUUID(),
+        title: file.name.replace(/\.(pdf|epub)$/i, ''),
+        fileName: file.name,
+        exam: data.exam,
+        subject: form.elements.subject.value,
+        category: form.elements.category.value,
+        format,
+        size: file.size,
+        uploadedAt: new Date().toISOString(),
+        file,
+      });
+    }
+    await renderLibrary();
+  } catch {
+    status.textContent = 'Could not save the book. Check available browser storage and try a smaller file.';
+    submit.disabled = false;
+  }
+}
+
+async function downloadLocalBook(id) {
+  try {
+    const book = (await listBooks()).find((item) => item.id === id);
+    if (!book) return;
+    const url = URL.createObjectURL(book.file);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = book.fileName;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch {
+    root.querySelector('.library-books')?.insertAdjacentHTML('afterbegin', '<p class="book-upload-status" role="status">Could not open this book from local storage.</p>');
+  }
+}
+
 function renderNotes() {
   if (!notesUnlocked) return renderNotesGate();
   if (!data.notes.length) data.notes.push({ title: 'Untitled note', body: '' });
@@ -255,13 +447,14 @@ function timeOfDay() {
 }
 
 function render() {
-  const labels = { dashboard: 'Overview', subjects: 'Subjects', practice: 'Quick practice', papers: 'Past papers', notes: 'My notes' };
+  const labels = { dashboard: 'Overview', subjects: 'Subjects', practice: 'Quick practice', papers: 'Past papers', library: 'Books', notes: 'My notes' };
   document.querySelector('#page-title').textContent = labels[data.view] || 'Overview';
   document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('is-active', button.dataset.view === data.view));
   examSelect.value = data.exam;
   if (data.view === 'subjects') renderSubjects();
   else if (data.view === 'practice') renderPractice();
   else if (data.view === 'papers') renderPapers();
+  else if (data.view === 'library') renderLibrary();
   else if (data.view === 'notes') renderNotes();
   else renderDashboard();
 }
@@ -297,6 +490,18 @@ document.addEventListener('click', (event) => {
     data.notes = [];
     activeNote = 0;
     return render();
+  }
+  if (button.dataset.action === 'lock-admin') {
+    adminUnlocked = false;
+    adminEncryptionKey = null;
+    return renderLibrary();
+  }
+  if (button.dataset.downloadBook) return downloadLocalBook(button.dataset.downloadBook);
+  if (button.dataset.deleteBook) {
+    removeBook(button.dataset.deleteBook).then(renderLibrary).catch(() => {
+      root.querySelector('.library-books')?.insertAdjacentHTML('afterbegin', '<p class="book-upload-status" role="status">Could not delete this book from local storage.</p>');
+    });
+    return;
   }
   if (button.dataset.action === 'check-answer' && selectedAnswer !== null && !quizSubmitted) {
     quizSubmitted = true;

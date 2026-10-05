@@ -1,4 +1,4 @@
-const CACHE_NAME = 'exams-hub-v6';
+const CACHE_NAME = 'exams-hub-v7';
 const APP_ASSETS = ['./', './index.html', './styles.css', './app.js', './manifest.webmanifest', './icon.svg', './sierra-leone-coat-of-arms.svg'];
 
 self.addEventListener('install', (event) => {

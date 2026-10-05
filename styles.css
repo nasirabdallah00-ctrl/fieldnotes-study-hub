@@ -144,6 +144,32 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
 .quiz-feedback { min-height: 20px; margin: 13px 0 2px; color: var(--green-2); font-size: 11px; }
 .quiz-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
 .empty-state { padding: 24px; border: 1px dashed #ccd8ce; border-radius: 6px; color: var(--muted); font-size: 12px; text-align: center; }
+.book-library-layout { display: grid; grid-template-columns: minmax(245px, .72fr) minmax(0, 1.5fr); gap: 22px; align-items: start; }
+.library-admin-panel { padding: 18px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.library-admin-top { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.library-admin-top .eyebrow { margin-bottom: 5px; }
+.library-admin-top h2, .book-upload-form h2 { margin: 0; font: 700 16px var(--display); }
+.admin-local-note { margin: 11px 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.book-upload-form { display: grid; gap: 8px; margin-top: 12px; }
+.book-upload-form .eyebrow { margin: 0; }
+.book-upload-form label { margin-top: 3px; color: #52635a; font-size: 10px; font-weight: 700; }
+.book-upload-form input:not([type="file"]), .book-upload-form select { width: 100%; min-height: 38px; padding: 0 9px; border: 1px solid var(--line); border-radius: 4px; background: white; color: var(--ink); font-size: 11px; }
+.book-upload-form input[type="file"] { width: 100%; padding: 8px; border: 1px dashed #cbd6cc; border-radius: 4px; background: #f8faf7; color: #56665b; font-size: 10px; }
+.book-upload-form .button-primary { justify-self: start; }
+.book-upload-status, .admin-auth-status { min-height: 14px; margin: 0; color: var(--green-2); font-size: 10px; line-height: 1.5; }
+.book-upload-form button:disabled { cursor: wait; opacity: .65; }
+.library-books .section-head { margin-top: 0; }
+.book-count { display: grid; min-width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--mint); color: var(--green); font-size: 10px; font-weight: 700; }
+.book-card-list { display: grid; gap: 8px; }
+.book-card { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 13px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); }
+.book-file-badge { display: grid; width: 36px; height: 42px; place-items: center; border-radius: 3px; background: #e8f1e9; color: var(--green); font-size: 9px; font-weight: 800; }
+.book-card-copy { min-width: 0; }
+.book-card-copy h3 { overflow-wrap: anywhere; margin: 0 0 4px; font: 700 12px var(--display); }
+.book-card-copy p, .book-card-copy > span { display: block; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; }
+.book-card-actions { display: flex; align-items: center; gap: 9px; }
+.book-card-actions .button-secondary { min-height: 32px; padding: 0 10px; font-size: 10px; }
+.danger-button { color: #b84f3d; }
+.danger-button:hover { color: #8d3426; }
 .paper-table { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
 .paper-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px 110px auto; align-items: center; gap: 15px; min-height: 65px; padding: 10px 15px; border-bottom: 1px solid var(--line); }
 .paper-row:last-child { border-bottom: 0; }
@@ -185,6 +211,7 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
   .view-root { padding-right: 25px; padding-left: 25px; }
   .subject-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .hero-art { min-height: 195px; }
+  .book-library-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 700px) {
   .sidebar { position: sticky; inset: 0 0 auto; width: 100%; height: auto; padding: 11px 14px 0; }
@@ -216,6 +243,9 @@ h1 { margin-bottom: 8px; font: 700 clamp(27px, 3vw, 38px)/1.13 var(--display); l
   .stat-copy strong { font-size: 17px; }
   .stat-copy span { font-size: 9px; }
   .content-grid, .notes-layout { grid-template-columns: 1fr; gap: 14px; }
+  .book-card { grid-template-columns: 34px minmax(0, 1fr); gap: 9px; }
+  .book-card-actions { grid-column: 2; }
+  .book-file-badge { width: 32px; height: 38px; }
   .notes-gate { grid-template-columns: 1fr; }
   .gate-mark { min-height: 90px; font-size: 42px; }
   .gate-form { padding: 22px; }
